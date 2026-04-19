@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { decodeResults, encodeCalls } from "../src/sdk/index.ts";
 import { Abi, AbiError, AbiFunction, Hex } from "ox";
 
 import {
@@ -11,9 +12,7 @@ import {
 	stopAnvil,
 } from "./support/anvil.ts";
 import {
-	buildZCallData,
 	decodeFunctionResult,
-	decodeZCallResponse,
 	encodeFunctionData,
 	encodeFunctionResult,
 	getRevertData,
@@ -25,7 +24,6 @@ import {
 } from "./support/zcall.ts";
 
 const mockArtifactPath = "out/MockContract.sol/MockContract.json";
-const zcallArtifactPath = "out/ZCall.yul/ZCall.json";
 
 const emptyAbi = Abi.from([]);
 
@@ -35,10 +33,7 @@ test("ZCall integration", async (t) => {
 		await stopAnvil(anvil);
 	});
 
-	const zcallArtifact = await loadArtifact(zcallArtifactPath);
 	const mockArtifact = await loadArtifact(mockArtifactPath);
-
-	const zcallInitcode = readBytecode(zcallArtifact, zcallArtifactPath);
 	const mockInitcode = readBytecode(mockArtifact, mockArtifactPath);
 	const mockAbi = readAbi(mockArtifact, mockArtifactPath);
 	const mockAddress = await deployContract(anvil.transport, mockInitcode);
@@ -96,14 +91,14 @@ test("ZCall integration", async (t) => {
 
 			const result = await ethCallCreate(
 				anvil.transport,
-				buildZCallData(zcallInitcode, [
-					{ target: mockAddress, calldata: getValueCall },
-					{ target: mockAddress, calldata: getGreetingCall },
-					{ target: mockAddress, calldata: failCall },
+				encodeCalls([
+					{ to: mockAddress, data: getValueCall },
+					{ to: mockAddress, data: getGreetingCall },
+					{ to: mockAddress, data: failCall },
 				]),
 			);
 
-			const entries = decodeZCallResponse(result);
+			const entries = decodeResults(result);
 			const [valueEntry, greetingEntry, failureEntry] = entries;
 
 			assert.equal(entries.length, 3);
@@ -112,21 +107,21 @@ test("ZCall integration", async (t) => {
 			assert.ok(failureEntry);
 			assert.equal(valueEntry.success, true);
 			assert.equal(
-				decodeFunctionResult(getValue, valueEntry.returndata),
+				decodeFunctionResult(getValue, valueEntry.returnData),
 				0x11223344n,
 			);
 
 			assert.equal(greetingEntry.success, true);
 			assert.equal(
-				decodeFunctionResult(getGreeting, greetingEntry.returndata),
+				decodeFunctionResult(getGreeting, greetingEntry.returnData),
 				"hello from mock-contract",
 			);
 
 			assert.equal(failureEntry.success, false);
-			const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returndata);
+			const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returnData);
 			assert.equal(revertError.name, "Error");
 			assert.equal(
-				AbiError.decode(revertError, failureEntry.returndata),
+				AbiError.decode(revertError, failureEntry.returnData),
 				"mocked revert",
 			);
 		},
@@ -156,26 +151,26 @@ test("ZCall integration", async (t) => {
 
 			const result = await ethCallCreate(
 				anvil.transport,
-				buildZCallData(zcallInitcode, [
-					{ target: mockAddress, calldata: echoSevenCall },
-					{ target: mockAddress, calldata: echoEightCall },
-					{ target: mockAddress, calldata: echoNineCall },
+				encodeCalls([
+					{ to: mockAddress, data: echoSevenCall },
+					{ to: mockAddress, data: echoEightCall },
+					{ to: mockAddress, data: echoNineCall },
 				]),
 			);
 
-			const entries = decodeZCallResponse(result);
+			const entries = decodeResults(result);
 			const [firstEntry, secondEntry, thirdEntry] = entries;
 
 			assert.equal(entries.length, 3);
 			assert.ok(firstEntry);
 			assert.ok(secondEntry);
 			assert.ok(thirdEntry);
-			assert.equal(decodeFunctionResult(echoUint, firstEntry.returndata), 700n);
+			assert.equal(decodeFunctionResult(echoUint, firstEntry.returnData), 700n);
 			assert.equal(
-				decodeFunctionResult(echoUint, secondEntry.returndata),
+				decodeFunctionResult(echoUint, secondEntry.returnData),
 				800n,
 			);
-			assert.equal(decodeFunctionResult(echoUint, thirdEntry.returndata), 700n);
+			assert.equal(decodeFunctionResult(echoUint, thirdEntry.returnData), 700n);
 		},
 	);
 
@@ -200,13 +195,13 @@ test("ZCall integration", async (t) => {
 
 		const result = await ethCallCreate(
 			anvil.transport,
-			buildZCallData(zcallInitcode, [
-				{ target: mockAddress, calldata: failCall },
-				{ target: mockAddress, calldata: getValueCall },
+			encodeCalls([
+				{ to: mockAddress, data: failCall },
+				{ to: mockAddress, data: getValueCall },
 			]),
 		);
 
-		const entries = decodeZCallResponse(result);
+		const entries = decodeResults(result);
 		const [failureEntry, successEntry] = entries;
 
 		assert.equal(entries.length, 2);
@@ -214,29 +209,29 @@ test("ZCall integration", async (t) => {
 		assert.ok(successEntry);
 		assert.equal(failureEntry.success, false);
 
-		const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returndata);
+		const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returnData);
 		assert.equal(revertError.name, "Error");
 		assert.equal(
-			AbiError.decode(revertError, failureEntry.returndata),
+			AbiError.decode(revertError, failureEntry.returnData),
 			"fatal mock revert",
 		);
 
 		assert.equal(successEntry.success, true);
 		assert.equal(
-			decodeFunctionResult(getValue, successEntry.returndata),
+			decodeFunctionResult(getValue, successEntry.returnData),
 			0x55n,
 		);
 	});
 
 	await t.test("returns empty bytes for an empty batch", async () => {
-		const result = await ethCallCreate(anvil.transport, zcallInitcode);
+		const result = await ethCallCreate(anvil.transport, encodeCalls([]));
 		assert.equal(result, "0x");
 	});
 
 	await t.test("reverts on malformed trailing bytes", async () => {
 		const response = await ethCallCreateRaw(
 			anvil.transport,
-			Hex.concat(zcallInitcode, "0x00"),
+			Hex.concat(encodeCalls([]), "0x00"),
 		);
 		const error = getRpcError(response);
 		const revertData = getRevertData(error);

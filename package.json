@@ -3,13 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build:contracts": "forge build",
+		"build:contracts": "forge build && node scripts/generate-sdk-initcode.mjs",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
-		"test": "npm run build:contracts && node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/zcall.test.ts",
-		"test:watch": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test --watch test/zcall.test.ts",
+		"test": "npm run build:contracts && node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/*.test.ts",
+		"test:watch": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test --watch test/*.test.ts",
 		"typecheck": "tsc --project tsconfig.json"
 	},
 	"dependencies": {

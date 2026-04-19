@@ -29,6 +29,18 @@ The repository now uses a minimal TypeScript-based test stack:
 
 That keeps the dependency footprint small while giving us a stable place to grow ABI-heavy tests.
 
+## TypeScript SDK
+
+The repository also includes a minimal internal-first TypeScript SDK in
+[`src/sdk/index.ts`](/Users/mmv/Projects/Personal/evm-zcall/src/sdk/index.ts).
+
+It intentionally does only two things:
+
+- `encodeCalls(calls)` bundles the canonical ZCall initcode and returns the full CREATE-style `eth_call` data blob.
+- `decodeResults(data)` parses the packed ZCall response format into `{ success, returnData }` entries.
+
+The SDK has no provider helpers, no ABI helpers, and no runtime artifact reads.
+
 ## Current scope
 
 This implementation is intentionally focused on the smallest SDK-first variant:
@@ -138,6 +150,8 @@ npm run build:contracts
 ```
 
 The compiled artifacts are emitted into the standard Foundry artifact tree under `out/`.
+That build step also refreshes the generated SDK initcode file at
+[`src/sdk/generated/initcode.ts`](/Users/mmv/Projects/Personal/evm-zcall/src/sdk/generated/initcode.ts).
 
 ## Test
 

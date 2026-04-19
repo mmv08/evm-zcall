@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { type Abi, AbiFunction, Bytes, Hex } from "ox";
+import { type Abi, AbiFunction, type Hex } from "ox";
 
 import {
 	type RawRpcResponse,
@@ -18,16 +18,6 @@ export type Artifact = {
 	bytecode?: {
 		object?: string;
 	};
-};
-
-export type CallSpec = {
-	target: Hex.Hex;
-	calldata: Hex.Hex;
-};
-
-export type ZCallEntry = {
-	success: boolean;
-	returndata: Hex.Hex;
 };
 
 type AnyFunction = ReturnType<typeof AbiFunction.from>;
@@ -52,58 +42,6 @@ export function readBytecode(
 		`Missing bytecode in ${artifactPath}`,
 	);
 	return normalizeHex(bytecode);
-}
-
-export function buildZCallData(
-	zcallInitcode: Hex.Hex,
-	calls: readonly CallSpec[],
-): Hex.Hex {
-	const parts = [];
-
-	for (const call of calls) {
-		parts.push(Bytes.from(call.target));
-		parts.push(Bytes.fromNumber(Hex.size(call.calldata), { size: 2 }));
-		parts.push(Bytes.from(call.calldata));
-	}
-
-	return Hex.concat(zcallInitcode, Bytes.toHex(Bytes.concat(...parts)));
-}
-
-export function decodeZCallResponse(data: Hex.Hex): ZCallEntry[] {
-	const bytes = Bytes.fromHex(data);
-	const entries: ZCallEntry[] = [];
-	let cursor = 0;
-
-	while (cursor < Bytes.size(bytes)) {
-		assert.ok(
-			cursor + 2 <= Bytes.size(bytes),
-			"Truncated ZCall response header",
-		);
-
-		const header = Bytes.toNumber(Bytes.slice(bytes, cursor, cursor + 2), {
-			size: 2,
-		});
-		const success = (header & 0x8000) !== 0;
-		const returndataLength = header & 0x7fff;
-		const returndataStart = cursor + 2;
-		const returndataEnd = returndataStart + returndataLength;
-
-		assert.ok(
-			returndataEnd <= Bytes.size(bytes),
-			"Truncated ZCall response body",
-		);
-
-		entries.push({
-			success,
-			returndata: Bytes.toHex(
-				Bytes.slice(bytes, returndataStart, returndataEnd),
-			),
-		});
-
-		cursor = returndataEnd;
-	}
-
-	return entries;
 }
 
 export async function sendFunctionTransaction(
