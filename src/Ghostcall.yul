@@ -1,6 +1,6 @@
-object "ZCall" {
+object "Ghostcall" {
     code {
-        // ZCall is an initcode-only batching program for CREATE-style eth_call.
+        // Ghostcall is an initcode-only batching program for CREATE-style eth_call.
         //
         // The caller sends:
         //   <compiled initcode><payload>

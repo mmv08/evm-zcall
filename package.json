@@ -1,5 +1,5 @@
 {
-	"name": "evm-zcall",
+	"name": "evm-ghostcall",
 	"private": true,
 	"type": "module",
 	"scripts": {

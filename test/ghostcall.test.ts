@@ -21,13 +21,13 @@ import {
 	readAbi,
 	readBytecode,
 	sendFunctionTransaction,
-} from "./support/zcall.ts";
+} from "./support/ghostcall.ts";
 
 const mockArtifactPath = "out/MockContract.sol/MockContract.json";
 
 const emptyAbi = Abi.from([]);
 
-test("ZCall integration", async (t) => {
+test("Ghostcall integration", async (t) => {
 	const anvil = await startAnvil();
 	t.after(async () => {
 		await stopAnvil(anvil);

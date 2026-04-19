@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { decodeResults, encodeCalls } from "../src/sdk/index.ts";
 
-test("ZCall SDK", async (t) => {
+test("Ghostcall SDK", async (t) => {
 	await t.test("returns bundled initcode for an empty call list", () => {
 		const data = encodeCalls([]);
 

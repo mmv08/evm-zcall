@@ -1,13 +1,13 @@
-import { zcallInitcode } from "./generated/initcode.ts";
+import { ghostcallInitcode } from "./generated/initcode.ts";
 
 export type Hex = `0x${string}`;
 
-export type ZCallCall = {
+export type GhostcallCall = {
 	to: Hex;
 	data: Hex;
 };
 
-export type ZCallResult = {
+export type GhostcallResult = {
 	success: boolean;
 	returnData: Hex;
 };
@@ -18,8 +18,8 @@ const maxCalldataSize = 0xffff;
 const successFlagMask = 0x8000;
 const returnDataLengthMask = 0x7fff;
 
-export function encodeCalls(calls: readonly ZCallCall[]): Hex {
-	const encodedParts = [zcallInitcode.slice(2)];
+export function encodeCalls(calls: readonly GhostcallCall[]): Hex {
+	const encodedParts = [ghostcallInitcode.slice(2)];
 
 	for (const [index, call] of calls.entries()) {
 		assertAddress(call.to, `calls[${index}].to`);
@@ -40,20 +40,20 @@ export function encodeCalls(calls: readonly ZCallCall[]): Hex {
 	return `0x${encodedParts.join("")}` as Hex;
 }
 
-export function decodeResults(data: Hex): ZCallResult[] {
+export function decodeResults(data: Hex): GhostcallResult[] {
 	const normalizedData = assertHex(data, "data");
 
 	if (normalizedData === "0x") {
 		return [];
 	}
 
-	const results: ZCallResult[] = [];
+	const results: GhostcallResult[] = [];
 	const encodedData = normalizedData.slice(2);
 	let cursor = 0;
 
 	while (cursor < encodedData.length) {
 		if (cursor + encodedHeaderHexLength > encodedData.length) {
-			throw new TypeError("Truncated ZCall response header");
+			throw new TypeError("Truncated Ghostcall response header");
 		}
 
 		const header = Number.parseInt(
@@ -66,7 +66,7 @@ export function decodeResults(data: Hex): ZCallResult[] {
 		const returnDataEnd = nextCursor + returnDataSize * 2;
 
 		if (returnDataEnd > encodedData.length) {
-			throw new TypeError("Truncated ZCall response body");
+			throw new TypeError("Truncated Ghostcall response body");
 		}
 
 		results.push({

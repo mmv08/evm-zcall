@@ -1,13 +1,13 @@
-# evm-zcall
+# ghostcall
 
-`evm-zcall` is a zero-deployment batching program for CREATE-style `eth_call`.
+`ghostcall` is a zero-deployment batching program for CREATE-style `eth_call`.
 
 Instead of calling a deployed Multicall contract, the client sends compiled initcode plus an
 appended payload. The EVM executes that initcode exactly as if it were deploying a contract, but
 because the transport is `eth_call`, nothing is persisted. Whatever the initcode `RETURN`s comes
 back as the RPC result.
 
-The implementation lives in [`src/ZCall.yul`](/Users/mmv/Projects/Personal/evm-zcall/src/ZCall.yul).
+The implementation lives in [`src/Ghostcall.yul`](src/Ghostcall.yul).
 
 ## Why this works
 
@@ -32,12 +32,12 @@ That keeps the dependency footprint small while giving us a stable place to grow
 ## TypeScript SDK
 
 The repository also includes a minimal internal-first TypeScript SDK in
-[`src/sdk/index.ts`](/Users/mmv/Projects/Personal/evm-zcall/src/sdk/index.ts).
+[`src/sdk/index.ts`](src/sdk/index.ts).
 
 It intentionally does only two things:
 
-- `encodeCalls(calls)` bundles the canonical ZCall initcode and returns the full CREATE-style `eth_call` data blob.
-- `decodeResults(data)` parses the packed ZCall response format into `{ success, returnData }` entries.
+- `encodeCalls(calls)` bundles the canonical Ghostcall initcode and returns the full CREATE-style `eth_call` data blob.
+- `decodeResults(data)` parses the packed Ghostcall response format into `{ success, returnData }` entries.
 
 The SDK has no provider helpers, no ABI helpers, and no runtime artifact reads.
 
@@ -76,7 +76,7 @@ In practice, this means less initcode to ship on every request, fewer bytes on t
 The caller sends:
 
 ```text
-<compiled zcall initcode><payload>
+<compiled ghostcall initcode><payload>
 ```
 
 Payload layout:
@@ -151,7 +151,7 @@ npm run build:contracts
 
 The compiled artifacts are emitted into the standard Foundry artifact tree under `out/`.
 That build step also refreshes the generated SDK initcode file at
-[`src/sdk/generated/initcode.ts`](/Users/mmv/Projects/Personal/evm-zcall/src/sdk/generated/initcode.ts).
+[`src/sdk/generated/initcode.ts`](src/sdk/generated/initcode.ts).
 
 ## Test
 
@@ -165,7 +165,7 @@ The test suite:
 - starts an ephemeral `anvil` instance automatically,
 - deploys and configures `MockContract` from Foundry artifacts,
 - encodes function calldata with `ox`,
-- executes a CREATE-style `eth_call` against ZCall,
+- executes a CREATE-style `eth_call` against Ghostcall,
 - decodes both function return data and revert data with `ox`,
 - verifies configurable success paths, calldata-vs-method precedence, inline failure entries, the empty-batch case, and top-level malformed-payload handling.
 
