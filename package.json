@@ -1,19 +1,24 @@
 {
-  "name": "evm-zcall",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build:contracts": "forge build",
-    "test": "npm run build:contracts && node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/zcall.test.ts",
-    "test:watch": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test --watch test/zcall.test.ts",
-    "typecheck": "tsc --project tsconfig.json"
-  },
-  "dependencies": {
-    "ox": "0.9.6"
-  },
-  "devDependencies": {
-    "@safe-global/mock-contract": "4.1.0",
-    "@types/node": "24.3.1",
-    "typescript": "5.9.2"
-  }
+	"name": "evm-zcall",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build:contracts": "forge build",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"test": "npm run build:contracts && node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/zcall.test.ts",
+		"test:watch": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test --watch test/zcall.test.ts",
+		"typecheck": "tsc --project tsconfig.json"
+	},
+	"dependencies": {
+		"ox": "0.9.6"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.12",
+		"@safe-global/mock-contract": "4.1.0",
+		"@types/node": "24.3.1",
+		"typescript": "5.9.2"
+	}
 }

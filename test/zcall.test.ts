@@ -104,25 +104,29 @@ test("ZCall integration", async (t) => {
 			);
 
 			const entries = decodeZCallResponse(result);
+			const [valueEntry, greetingEntry, failureEntry] = entries;
 
 			assert.equal(entries.length, 3);
-			assert.equal(entries[0]?.success, true);
+			assert.ok(valueEntry);
+			assert.ok(greetingEntry);
+			assert.ok(failureEntry);
+			assert.equal(valueEntry.success, true);
 			assert.equal(
-				decodeFunctionResult(getValue, entries[0]!.returndata),
+				decodeFunctionResult(getValue, valueEntry.returndata),
 				0x11223344n,
 			);
 
-			assert.equal(entries[1]?.success, true);
+			assert.equal(greetingEntry.success, true);
 			assert.equal(
-				decodeFunctionResult(getGreeting, entries[1]!.returndata),
+				decodeFunctionResult(getGreeting, greetingEntry.returndata),
 				"hello from mock-contract",
 			);
 
-			assert.equal(entries[2]?.success, false);
-			const revertError = AbiError.fromAbi(emptyAbi, entries[2]!.returndata);
+			assert.equal(failureEntry.success, false);
+			const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returndata);
 			assert.equal(revertError.name, "Error");
 			assert.equal(
-				AbiError.decode(revertError, entries[2]!.returndata),
+				AbiError.decode(revertError, failureEntry.returndata),
 				"mocked revert",
 			);
 		},
@@ -160,20 +164,18 @@ test("ZCall integration", async (t) => {
 			);
 
 			const entries = decodeZCallResponse(result);
+			const [firstEntry, secondEntry, thirdEntry] = entries;
 
 			assert.equal(entries.length, 3);
+			assert.ok(firstEntry);
+			assert.ok(secondEntry);
+			assert.ok(thirdEntry);
+			assert.equal(decodeFunctionResult(echoUint, firstEntry.returndata), 700n);
 			assert.equal(
-				decodeFunctionResult(echoUint, entries[0]!.returndata),
-				700n,
-			);
-			assert.equal(
-				decodeFunctionResult(echoUint, entries[1]!.returndata),
+				decodeFunctionResult(echoUint, secondEntry.returndata),
 				800n,
 			);
-			assert.equal(
-				decodeFunctionResult(echoUint, entries[2]!.returndata),
-				700n,
-			);
+			assert.equal(decodeFunctionResult(echoUint, thirdEntry.returndata), 700n);
 		},
 	);
 
@@ -205,19 +207,25 @@ test("ZCall integration", async (t) => {
 		);
 
 		const entries = decodeZCallResponse(result);
+		const [failureEntry, successEntry] = entries;
 
 		assert.equal(entries.length, 2);
-		assert.equal(entries[0]?.success, false);
+		assert.ok(failureEntry);
+		assert.ok(successEntry);
+		assert.equal(failureEntry.success, false);
 
-		const revertError = AbiError.fromAbi(emptyAbi, entries[0]!.returndata);
+		const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returndata);
 		assert.equal(revertError.name, "Error");
 		assert.equal(
-			AbiError.decode(revertError, entries[0]!.returndata),
+			AbiError.decode(revertError, failureEntry.returndata),
 			"fatal mock revert",
 		);
 
-		assert.equal(entries[1]?.success, true);
-		assert.equal(decodeFunctionResult(getValue, entries[1]!.returndata), 0x55n);
+		assert.equal(successEntry.success, true);
+		assert.equal(
+			decodeFunctionResult(getValue, successEntry.returndata),
+			0x55n,
+		);
 	});
 
 	await t.test("returns empty bytes for an empty batch", async () => {

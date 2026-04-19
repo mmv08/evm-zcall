@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { Abi, AbiFunction, Bytes, Hex } from "ox";
+import { type Abi, AbiFunction, Bytes, Hex } from "ox";
 
 import {
 	type RawRpcResponse,
 	type RpcErrorObject,
-	type Transport,
 	sendTransaction,
+	type Transport,
 } from "./anvil.ts";
 
 const projectRoot = process.cwd();
@@ -42,7 +42,10 @@ export function readAbi(artifact: Artifact, artifactPath: string): Abi.Abi {
 	return artifact.abi;
 }
 
-export function readBytecode(artifact: Artifact, artifactPath: string): Hex.Hex {
+export function readBytecode(
+	artifact: Artifact,
+	artifactPath: string,
+): Hex.Hex {
 	const bytecode = artifact.bytecode?.object;
 	assert.ok(
 		bytecode && bytecode !== "0x",
@@ -115,9 +118,7 @@ export async function sendFunctionTransaction(
 	});
 }
 
-export function getRpcError(
-	response: RawRpcResponse<Hex.Hex>,
-): RpcErrorObject {
+export function getRpcError(response: RawRpcResponse<Hex.Hex>): RpcErrorObject {
 	if ("error" in response) {
 		return response.error;
 	}

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:net";
 
-import { Hex, RpcTransport } from "ox";
+import { type Hex, RpcTransport } from "ox";
 
 export const defaultSender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
@@ -155,7 +155,11 @@ export async function sendTransaction(
 	})) as Hex.Hex;
 
 	const receipt = await waitForReceipt(transport, hash);
-	assert.notEqual(receipt.status, "0x0", `Transaction ${hash} reverted unexpectedly`);
+	assert.notEqual(
+		receipt.status,
+		"0x0",
+		`Transaction ${hash} reverted unexpectedly`,
+	);
 
 	return hash;
 }
