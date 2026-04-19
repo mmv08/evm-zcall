@@ -34,7 +34,7 @@ object "ZCall" {
         let payloadCursor := dataoffset("user_payload_anchor")
         let payloadEnd := codesize()
 
-        let responsePtr := 0x80
+        let responsePtr := 0x20
         let writePtr := responsePtr
 
         for {} 1 {} {
@@ -57,10 +57,10 @@ object "ZCall" {
                 revert(0x00, 0x00)
             }
 
-            let calldataPtr := align32(add(writePtr, 0x02))
+            let calldataPtr := add(writePtr, 0x02)
             codecopy(calldataPtr, calldataOffset, calldataSize)
 
-            let success := staticcall(gas(), target, calldataPtr, calldataSize, 0, 0)
+            let success := call(gas(), target, 0, calldataPtr, calldataSize, 0, 0)
             let returndataSize := returndatasize()
 
             if gt(returndataSize, maxEntrySize) {
@@ -73,7 +73,7 @@ object "ZCall" {
                 revert(0x00, 0x00)
             }
 
-            writePackedHeader(writePtr, success, returndataSize)
+            mstore(writePtr, shl(240, or(shl(15, success), returndataSize)))
             returndatacopy(add(writePtr, 0x02), 0, returndataSize)
 
             writePtr := nextWritePtr
@@ -82,15 +82,6 @@ object "ZCall" {
 
         return(responsePtr, sub(writePtr, responsePtr))
 
-        function align32(value) -> aligned {
-            aligned := and(add(value, 0x1f), not(0x1f))
-        }
-
-        function writePackedHeader(ptr, success, returndataSize) {
-            let header := or(shl(15, success), returndataSize)
-            mstore8(ptr, and(shr(8, header), 0xff))
-            mstore8(add(ptr, 0x01), and(header, 0xff))
-        }
     }
 
     data "user_payload_anchor" hex""

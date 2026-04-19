@@ -13,7 +13,7 @@ The implementation lives in [`src/ZCall.yul`](/Users/mmv/Projects/Personal/evm-z
 
 - `eth_call` without a `to` field executes the supplied `data` as CREATE initcode.
 - Initcode can read caller-appended bytes from its own code using `CODECOPY`.
-- Initcode can perform `STATICCALL`s, pack the returned bytes into memory, and `RETURN` them.
+- Initcode can perform ordinary external calls, pack the returned bytes into memory, and `RETURN` them.
 - Returned bytes are still subject to CREATE limits because the client treats them as would-be
   runtime bytecode.
 
@@ -31,9 +31,9 @@ That keeps the dependency footprint small while giving us a stable place to grow
 
 ## Current scope
 
-This implementation is intentionally focused on the cleanest read-only variant:
+This implementation is intentionally focused on the smallest SDK-first variant:
 
-- `STATICCALL` only
+- zero-value `CALL` for subcalls
 - packed binary input instead of ABI encoding
 - packed binary output instead of ABI encoding
 - always-return result entries for every subcall
@@ -168,7 +168,7 @@ still mapping one-to-one onto the EVM concepts that matter here:
 
 - `dataoffset(...)` anchors the appended payload boundary
 - `codecopy` streams headers and calldata directly from the appended payload
-- `staticcall` performs read-only subcalls
+- `call` executes each subcall with zero value
 - `returndatacopy` packs the aggregate response into a compact binary format
 - `return` hands the batch result back to RPC
 
