@@ -11,26 +11,29 @@ test("Ghostcall SDK", async (t) => {
 		assert.notEqual(data, "0x");
 	});
 
-	await t.test("encodes single and multi-call payloads in order", () => {
-		const baseData = encodeCalls([]);
-		const firstCall = {
-			to: "0x1111111111111111111111111111111111111111",
-			data: "0xaabb",
-		} as const;
-		const secondCall = {
-			to: "0x2222222222222222222222222222222222222222",
-			data: "0x",
-		} as const;
+	await t.test(
+		"encodes single and multi-call payloads with len-first headers",
+		() => {
+			const baseData = encodeCalls([]);
+			const firstCall = {
+				to: "0x1111111111111111111111111111111111111111",
+				data: "0xaabb",
+			} as const;
+			const secondCall = {
+				to: "0x2222222222222222222222222222222222222222",
+				data: "0x",
+			} as const;
 
-		assert.equal(
-			encodeCalls([firstCall]),
-			`${baseData}${firstCall.to.slice(2)}0002aabb`,
-		);
-		assert.equal(
-			encodeCalls([firstCall, secondCall]),
-			`${baseData}${firstCall.to.slice(2)}0002aabb${secondCall.to.slice(2)}0000`,
-		);
-	});
+			assert.equal(
+				encodeCalls([firstCall]),
+				`${baseData}0002${firstCall.to.slice(2)}aabb`,
+			);
+			assert.equal(
+				encodeCalls([firstCall, secondCall]),
+				`${baseData}0002${firstCall.to.slice(2)}aabb0000${secondCall.to.slice(2)}`,
+			);
+		},
+	);
 
 	await t.test("rejects invalid addresses", () => {
 		assert.throws(

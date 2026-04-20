@@ -60,6 +60,7 @@ const returnDataLengthMask = 0x7fff;
  * The returned hex string already includes the bundled Ghostcall initcode followed
  * by the compact binary payload for each subcall, so callers can pass it directly
  * as the `data` field of an `eth_call` request without supplying a `to` address.
+ * Each encoded subcall entry uses the compact layout `[len(2)][target(20)][data]`.
  *
  * @param calls - Ordered list of subcalls to execute. Each entry becomes one
  *                Ghostcall payload segment in the same order it appears here.
@@ -99,8 +100,8 @@ export function encodeCalls(calls: readonly GhostcallCall[]): Hex {
 			);
 		}
 
-		encodedParts.push(call.to.slice(2));
 		encodedParts.push(calldataSize.toString(16).padStart(4, "0"));
+		encodedParts.push(call.to.slice(2));
 		encodedParts.push(calldata.slice(2));
 	}
 

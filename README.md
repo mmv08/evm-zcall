@@ -160,8 +160,8 @@ N bytes  repeated call entries
 Each call entry:
 
 ```text
-20 bytes target
  2 bytes calldata length (big-endian uint16)
+20 bytes target
  N bytes calldata
 ```
 
@@ -169,6 +169,9 @@ Notes:
 
 - Payload bytes are not normal calldata. They are appended after the compiled initcode and read via
   `CODECOPY`.
+- The length comes first on purpose. Ghostcall copies the 22-byte fixed header into scratch memory
+  at offset `0x0a`, so one `mload(0x00)` exposes the length in the high 2 non-zero bytes and the
+  target address in the low 20 bytes used by `CALL`.
 - An empty payload is valid and returns an empty result blob.
 - Per-call calldata is limited to `65535` bytes because the format uses `uint16`.
 - The whole CREATE payload is still limited by the initcode size ceiling.
@@ -196,8 +199,9 @@ The engine only reverts for malformed payloads or return-size violations, and th
 reverts are intentionally empty. The SDK is expected to validate payloads up front and impose any
 higher-level "fail the whole batch" policy for callers that want it.
 
-Per-call returndata is limited to `32767` bytes because the packed result header reserves one bit
-for the success flag.
+The packed result header can represent up to `32767` bytes of returndata per entry, but in
+practice the stricter CREATE return cap limits the whole response to `24,576` bytes, including the
+2-byte header on each entry.
 
 ## Limits
 
@@ -254,6 +258,8 @@ still mapping one-to-one onto the EVM concepts that matter here:
 
 - `dataoffset(...)` anchors the appended payload boundary
 - `codecopy` streams headers and calldata directly from the appended payload
+- the len-first header plus a `0x0a` scratch offset lets one `mload(0x00)` yield both calldata
+  length and the `CALL` address word without extra masking
 - `call` executes each subcall with zero value
 - `returndatacopy` packs the aggregate response into a compact binary format
 - `return` hands the batch result back to RPC
