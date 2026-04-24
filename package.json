@@ -17,8 +17,7 @@
 		"test:watch": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test --watch test/*.test.ts",
 		"typecheck": "tsc --project tsconfig.json"
 	},
-	"dependencies": {
-	},
+	"dependencies": {},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.12",
 		"@safe-global/mock-contract": "4.1.0",
