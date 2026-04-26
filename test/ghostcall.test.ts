@@ -23,6 +23,8 @@ import {
 } from "./support/ghostcall.ts";
 
 const mockArtifactPath = "out/MockContract.sol/MockContract.json";
+const oversizedReturnRuntimeInitcode =
+	"0x6006600c60003960066000f36180006000f3" as Hex.Hex;
 
 const emptyAbi = Abi.from([]);
 const maxCreateReturnSize = 0x6000;
@@ -255,33 +257,6 @@ test("Ghostcall integration", async (t) => {
 		assert.equal(entry.returnData, maxSizedResponse);
 	});
 
-	await t.test(
-		"reverts when returndata exceeds the CREATE return-size limit",
-		async () => {
-			await sendFunctionTransaction(anvil.transport, mockAddress, reset, []);
-
-			const oversizedCall = "0x87654321";
-			const oversizedResponse =
-				`0x${"22".repeat(maxSingleReturnDataSize + 1)}` as Hex.Hex;
-
-			await sendFunctionTransaction(
-				anvil.transport,
-				mockAddress,
-				givenCalldataReturn,
-				[oversizedCall, oversizedResponse],
-			);
-
-			const response = await ethCallCreateRaw(
-				anvil.transport,
-				encodeCalls([{ to: mockAddress, data: oversizedCall }]),
-			);
-			const error = getRpcError(response);
-			const revertData = getRevertData(error);
-
-			assert.equal(revertData, "0x");
-		},
-	);
-
 	await t.test("reverts on malformed trailing bytes", async () => {
 		const response = await ethCallCreateRaw(
 			anvil.transport,
@@ -293,3 +268,74 @@ test("Ghostcall integration", async (t) => {
 		assert.equal(revertData, "0x");
 	});
 });
+
+test("Ghostcall can return aggregate responses above the old in-contract cap", async (t) => {
+	const anvil = await startAnvil({ args: ["--code-size-limit", "32768"] });
+	t.after(async () => {
+		await stopAnvil(anvil);
+	});
+
+	const mockArtifact = await loadArtifact(mockArtifactPath);
+	const mockInitcode = readBytecode(mockArtifact, mockArtifactPath);
+	const mockAbi = readAbi(mockArtifact, mockArtifactPath);
+	const mockAddress = await deployContract(anvil.transport, mockInitcode);
+
+	const balanceOf = AbiFunction.from(
+		"function balanceOf(address) view returns (uint256)",
+	);
+	const givenMethodReturn = AbiFunction.fromAbi(mockAbi, "givenMethodReturn");
+	const owner = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+	const balanceCall = encodeFunctionData(balanceOf, [owner]);
+	const balanceResult = encodeFunctionResult(balanceOf, 123n);
+
+	await sendFunctionTransaction(
+		anvil.transport,
+		mockAddress,
+		givenMethodReturn,
+		[balanceCall, balanceResult],
+	);
+
+	const callCount = Math.floor(0x6000 / (2 + 32)) + 1;
+	const result = await ethCallCreate(
+		anvil.transport,
+		encodeCalls(
+			Array.from({ length: callCount }, () => ({
+				to: mockAddress,
+				data: balanceCall,
+			})),
+		),
+	);
+
+	assert.ok(byteLength(result) > 0x6000);
+
+	const entries = decodeResults(result);
+	assert.equal(entries.length, callCount);
+
+	for (const entry of entries) {
+		assert.equal(entry.success, true);
+		assert.equal(entry.returnData, balanceResult);
+	}
+});
+
+test("Ghostcall reverts when one entry exceeds the uint15 returndata header", async (t) => {
+	const anvil = await startAnvil({ args: ["--code-size-limit", "65536"] });
+	t.after(async () => {
+		await stopAnvil(anvil);
+	});
+
+	const oversizedReturnAddress = await deployContract(
+		anvil.transport,
+		oversizedReturnRuntimeInitcode,
+	);
+	const response = await ethCallCreateRaw(
+		anvil.transport,
+		encodeCalls([{ to: oversizedReturnAddress, data: "0x" }]),
+	);
+	const error = getRpcError(response);
+
+	assert.equal(getRevertData(error), "0x");
+});
+
+function byteLength(value: `0x${string}`): number {
+	return (value.length - 2) / 2;
+}

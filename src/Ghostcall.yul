@@ -43,7 +43,7 @@ object "Ghostcall" {
         // - continue until the payload is fully consumed
         //
         // The SDK is expected to validate most caller-facing invariants ahead of time. The checks
-        // left in this file exist only to protect parser correctness and CREATE return-size limits.
+        // left in this file exist only to protect parser correctness and response packing.
 
         // dataoffset("user_payload_anchor") is the byte offset of the empty data section declared at
         // the bottom of this file. Because that data section is placed after the code, its offset is
@@ -112,20 +112,22 @@ object "Ghostcall" {
             let success := call(gas(), headerWord, 0, calldataPtr, calldataSize, 0, 0)
             let returndataSize := returndatasize()
 
+            // The packed result header has 15 returndata length bits; bit 15 is the success flag.
+            // Revert rather than letting oversized returndata collide with the success bit.
+            if gt(returndataSize, 0x7fff) {
+                revert(0x00, 0x00)
+            }
+
             // Compute where the next result entry would begin after writing:
             //   2-byte packed header + returndata bytes
             let nextWritePtr := add(add(writePtr, 0x02), returndataSize)
 
-            // CREATE-style execution still enforces a maximum return size because the EVM treats the
-            // returned bytes as would-be runtime code. If the aggregate response gets too large, the
-            // whole batch must fail.
-            //
-            // This aggregate 0x6000-byte limit is stricter than the 0x7fff maximum representable by
-            // the packed 15-bit returndata length field, so no separate per-entry size check is
-            // needed.
-            if gt(nextWritePtr, 0x6020) {
-                revert(0x00, 0x00)
-            }
+            // Intentionally do not enforce an aggregate response-size cap here. CREATE-style
+            // execution already treats returned bytes as would-be runtime code, so the active
+            // chain/client/RPC environment will reject oversized responses according to its own
+            // code-size policy. Keeping this uncapped lets the same Ghostcall initcode benefit from
+            // networks with larger limits, such as Monad's MIP-2:
+            // https://mips.monad.xyz/MIPS/MIP-2
 
             // Write the packed 2-byte result header into the high 2 bytes of the 32-byte word at
             // writePtr. The rest of that word does not matter because the return length is computed
