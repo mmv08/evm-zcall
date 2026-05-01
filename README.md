@@ -7,12 +7,16 @@ appended payload. The EVM executes that initcode exactly as if it were deploying
 because the transport is `eth_call`, nothing is persisted. Whatever the initcode `RETURN`s comes
 back as the RPC result.
 
-The implementation lives in [`src/Ghostcall.yul`](src/Ghostcall.yul).
+## Install
+
+```bash
+npm install @volga-sh/evm-ghostcall
+```
 
 ## Quick example
 
 ```ts
-import { aggregateCalls } from "@volga/evm-ghostcall";
+import { aggregateCalls } from "@volga-sh/evm-ghostcall";
 import {
 	createPublicClient,
 	decodeFunctionResult,
@@ -77,38 +81,9 @@ console.log({
 });
 ```
 
-## Why this works
-
-- `eth_call` without a `to` field executes the supplied `data` as CREATE initcode.
-- Initcode can read caller-appended bytes from its own code using `CODECOPY`.
-- Initcode can perform ordinary external calls, pack the returned bytes into memory, and `RETURN` them.
-- Returned bytes are still subject to CREATE limits because the client treats them as would-be
-  runtime bytecode.
-
-## Development stack
-
-The repository now uses a minimal TypeScript-based test stack:
-
-- Foundry for contract compilation and `anvil`
-- Node's built-in [`node:test`](https://nodejs.org/api/test.html) runner
-- Node's built-in TypeScript stripping for test execution
-- [`ox`](https://www.npmjs.com/package/ox) for JSON-RPC, ABI, hex, and byte utilities
-- [`@safe-global/mock-contract`](https://www.npmjs.com/package/@safe-global/mock-contract) for configurable mock-call behavior
-
-That keeps the dependency footprint small while giving us a stable place to grow ABI-heavy tests.
-
 ## TypeScript SDK
 
-Install the SDK from npm:
-
-```bash
-npm install @volga/evm-ghostcall
-```
-
-The repository also includes a minimal internal-first TypeScript SDK in
-[`src/sdk/index.ts`](src/sdk/index.ts).
-
-It intentionally exposes only the small protocol surface:
+The TypeScript SDK intentionally exposes only the small protocol surface:
 
 - `encodeCalls(calls)` bundles the canonical Ghostcall initcode and returns the full CREATE-style `eth_call` data blob.
 - `decodeResults(data)` parses the packed Ghostcall response format into `{ success, returnData }` entries.
@@ -125,6 +100,28 @@ The SDK has no ABI helpers and no runtime artifact reads. To ABI-decode successf
 `decodeResult` callbacks that call the ABI library already used by the application. By default,
 `aggregateCalls` returns result entries. Pass `{ results: "decoded" }` to return decoded values
 directly.
+
+## Why this works
+
+- `eth_call` without a `to` field executes the supplied `data` as CREATE initcode.
+- Initcode can read caller-appended bytes from its own code using `CODECOPY`.
+- Initcode can perform ordinary external calls, pack the returned bytes into memory, and `RETURN` them.
+- Returned bytes are still subject to CREATE limits because the client treats them as would-be
+  runtime bytecode.
+
+The implementation lives in [`src/Ghostcall.yul`](src/Ghostcall.yul).
+
+## Development stack
+
+The repository now uses a minimal TypeScript-based test stack:
+
+- Foundry for contract compilation and `anvil`
+- Node's built-in [`node:test`](https://nodejs.org/api/test.html) runner
+- Node's built-in TypeScript stripping for test execution
+- [`ox`](https://www.npmjs.com/package/ox) for JSON-RPC, ABI, hex, and byte utilities
+- [`@safe-global/mock-contract`](https://www.npmjs.com/package/@safe-global/mock-contract) for configurable mock-call behavior
+
+That keeps the dependency footprint small while giving us a stable place to grow ABI-heavy tests.
 
 ## Current scope
 

@@ -1,6 +1,6 @@
 {
-	"name": "@volga/evm-ghostcall",
-	"version": "0.1.0",
+	"name": "@volga-sh/evm-ghostcall",
+	"version": "0.0.1",
 	"description": "Zero-deployment batching program and TypeScript SDK for CREATE-style eth_call requests.",
 	"license": "MIT",
 	"type": "module",
