@@ -93,8 +93,18 @@ test("Ghostcall integration", async (t) => {
 			);
 
 			const entries = await aggregateCalls(anvil.transport, [
-				{ to: mockAddress, data: getValueCall },
-				{ to: mockAddress, data: getGreetingCall },
+				{
+					to: mockAddress,
+					data: getValueCall,
+					decodeResult: (returnData) =>
+						decodeFunctionResult(getValue, returnData),
+				},
+				{
+					to: mockAddress,
+					data: getGreetingCall,
+					decodeResult: (returnData) =>
+						decodeFunctionResult(getGreeting, returnData),
+				},
 				{ to: mockAddress, data: failCall, allowFailure: true },
 			]);
 			const [valueEntry, greetingEntry, failureEntry] = entries;
@@ -104,16 +114,10 @@ test("Ghostcall integration", async (t) => {
 			assert.ok(greetingEntry);
 			assert.ok(failureEntry);
 			assert.equal(valueEntry.success, true);
-			assert.equal(
-				decodeFunctionResult(getValue, valueEntry.returnData),
-				0x11223344n,
-			);
+			assert.equal(valueEntry.decodedResult, 0x11223344n);
 
 			assert.equal(greetingEntry.success, true);
-			assert.equal(
-				decodeFunctionResult(getGreeting, greetingEntry.returnData),
-				"hello from mock-contract",
-			);
+			assert.equal(greetingEntry.decodedResult, "hello from mock-contract");
 
 			assert.equal(failureEntry.success, false);
 			const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returnData);

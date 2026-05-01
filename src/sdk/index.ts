@@ -40,6 +40,30 @@ type GhostcallAggregateCall = GhostcallCall & {
 	 * a call does not explicitly opt into failure.
 	 */
 	allowFailure?: boolean;
+
+	/**
+	 * Optional decoder for this call's successful return data.
+	 *
+	 * This is intentionally a caller-provided function so the SDK stays independent
+	 * from ABI libraries while still letting callers plug in helpers such as
+	 * `decodeFunctionResult` from viem or ox.
+	 */
+	decodeResult?: GhostcallResultDecoder<unknown>;
+};
+
+/**
+ * One Ghostcall aggregate subcall entry for decoded-results mode.
+ */
+type GhostcallDecodedAggregateCall<TResult = unknown> = GhostcallCall & {
+	/**
+	 * Decodes this call's successful return data.
+	 */
+	decodeResult: GhostcallResultDecoder<TResult>;
+
+	/**
+	 * Decoded-results mode is strict and does not return failed entries.
+	 */
+	allowFailure?: false;
 };
 
 /**
@@ -62,6 +86,74 @@ type GhostcallResult = {
 	 */
 	returnData: Hex;
 };
+
+/**
+ * Function used by {@link aggregateCalls} to turn raw successful return data into
+ * a caller-chosen value.
+ */
+type GhostcallResultDecoder<TResult> = (
+	returnData: Hex,
+	entry: GhostcallResult,
+	index: number,
+) => TResult;
+
+/**
+ * One decoded aggregate result entry when a call provides `decodeResult`.
+ */
+type GhostcallDecodedResult<TResult> = {
+	success: true;
+	returnData: Hex;
+	decodedResult: TResult;
+};
+
+type GhostcallAggregateResult<TCall> = TCall extends {
+	decodeResult: GhostcallResultDecoder<infer TResult>;
+}
+	? TCall extends { allowFailure: true }
+		? GhostcallDecodedResult<TResult> | GhostcallResult
+		: GhostcallDecodedResult<TResult>
+	: GhostcallResult;
+
+type GhostcallAggregateResults<
+	TCalls extends readonly GhostcallAggregateCall[],
+> = {
+	-readonly [Index in keyof TCalls]: GhostcallAggregateResult<TCalls[Index]>;
+};
+
+type GhostcallDecodedResults<
+	TCalls extends readonly GhostcallDecodedAggregateCall[],
+> = {
+	-readonly [Index in keyof TCalls]: TCalls[Index] extends {
+		decodeResult: GhostcallResultDecoder<infer TResult>;
+	}
+		? TResult
+		: never;
+};
+
+type GhostcallAggregateOptions = {
+	/**
+	 * Result shape returned by {@link aggregateCalls}.
+	 *
+	 * Defaults to `entries`, returning Ghostcall result entries. Set to `decoded`
+	 * to return each call's decoded value directly.
+	 */
+	results?: "entries";
+};
+
+type GhostcallDecodedAggregateOptions = {
+	/**
+	 * Return each call's decoded value directly.
+	 */
+	results: "decoded";
+};
+
+type GhostcallAggregateImplementationResults<
+	TCalls extends readonly GhostcallAggregateCall[],
+> =
+	| GhostcallAggregateResults<TCalls>
+	| (TCalls extends readonly GhostcallDecodedAggregateCall[]
+			? GhostcallDecodedResults<TCalls>
+			: never);
 
 /**
  * Minimal EIP-1193 provider interface that only requires the request method
@@ -162,10 +254,14 @@ function encodeCalls(calls: readonly GhostcallCall[]): Hex {
  *
  * By default, any failed subcall makes this method reject. Set
  * `allowFailure: true` on a call to receive that failed entry in the returned
- * results instead.
+ * results instead. Set `decodeResult` on a call to transform successful raw
+ * return data, for example with `decodeFunctionResult` from an ABI library.
+ * Pass `{ results: "decoded" }` as the third argument to receive only the
+ * decoded values.
  *
  * @param provider - EIP-1193-compatible provider with a `request` method.
  * @param calls - Ordered list of subcalls to execute.
+ * @param options - Optional result-shape controls.
  *
  * @returns Ordered decoded Ghostcall result entries.
  *
@@ -181,6 +277,11 @@ function encodeCalls(calls: readonly GhostcallCall[]): Hex {
  *   {
  *     to: "0x1111111111111111111111111111111111111111",
  *     data: "0x70a08231000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ *     decodeResult: (returnData) => decodeFunctionResult({
+ *       abi: erc20Abi,
+ *       functionName: "balanceOf",
+ *       data: returnData,
+ *     }),
  *   },
  *   {
  *     to: "0x2222222222222222222222222222222222222222",
@@ -188,11 +289,56 @@ function encodeCalls(calls: readonly GhostcallCall[]): Hex {
  *     allowFailure: true,
  *   },
  * ]);
+ *
+ * const [balance] = await aggregateCalls(provider, [
+ *   {
+ *     to: "0x1111111111111111111111111111111111111111",
+ *     data: "0x70a08231000000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ *     decodeResult: (returnData) => decodeFunctionResult({
+ *       abi: erc20Abi,
+ *       functionName: "balanceOf",
+ *       data: returnData,
+ *     }),
+ *   },
+ * ], { results: "decoded" });
  */
-async function aggregateCalls(
+async function aggregateCalls<
+	const TCalls extends readonly GhostcallAggregateCall[],
+>(
 	provider: EIP1193ProviderWithRequestFn,
-	calls: readonly GhostcallAggregateCall[],
-): Promise<GhostcallResult[]> {
+	calls: TCalls,
+	options?: GhostcallAggregateOptions,
+): Promise<GhostcallAggregateResults<TCalls>>;
+async function aggregateCalls<
+	const TCalls extends readonly GhostcallDecodedAggregateCall[],
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	calls: TCalls,
+	options: GhostcallDecodedAggregateOptions,
+): Promise<GhostcallDecodedResults<TCalls>>;
+async function aggregateCalls<
+	const TCalls extends readonly GhostcallAggregateCall[],
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	calls: TCalls,
+	options: GhostcallAggregateOptions | GhostcallDecodedAggregateOptions = {},
+): Promise<GhostcallAggregateImplementationResults<TCalls>> {
+	if (options.results === "decoded") {
+		for (const [index, call] of calls.entries()) {
+			if (call.allowFailure === true) {
+				throw new TypeError(
+					`calls[${index}].allowFailure cannot be true when results is decoded`,
+				);
+			}
+
+			if (call.decodeResult === undefined) {
+				throw new TypeError(
+					`calls[${index}].decodeResult is required when results is decoded`,
+				);
+			}
+		}
+	}
+
 	const data = encodeCalls(calls);
 	const result = await provider.request({
 		method: "eth_call",
@@ -212,7 +358,30 @@ async function aggregateCalls(
 		}
 	}
 
-	return entries;
+	const decodedEntries = entries.map((entry, index) => {
+		const decodeResult = calls[index]?.decodeResult;
+		if (!entry.success || decodeResult === undefined) {
+			return entry;
+		}
+
+		return {
+			...entry,
+			success: true,
+			decodedResult: decodeResult(entry.returnData, entry, index),
+		};
+	});
+
+	if (options.results === "decoded") {
+		return decodedEntries.map((entry) => {
+			if (!entry.success || !("decodedResult" in entry)) {
+				throw new Error("Ghostcall decoded result invariant failed");
+			}
+
+			return entry.decodedResult;
+		}) as GhostcallAggregateImplementationResults<TCalls>;
+	}
+
+	return decodedEntries as GhostcallAggregateImplementationResults<TCalls>;
 }
 
 /**
@@ -348,8 +517,15 @@ function byteLength(value: Hex): number {
 export type {
 	EIP1193ProviderWithRequestFn,
 	GhostcallAggregateCall,
+	GhostcallAggregateOptions,
+	GhostcallAggregateResult,
 	GhostcallCall,
+	GhostcallDecodedAggregateCall,
+	GhostcallDecodedAggregateOptions,
+	GhostcallDecodedResult,
+	GhostcallDecodedResults,
 	GhostcallResult,
+	GhostcallResultDecoder,
 	Hex,
 };
 export { aggregateCalls, decodeResults, encodeCalls };

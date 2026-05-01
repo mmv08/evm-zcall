@@ -186,6 +186,143 @@ test("Ghostcall SDK", async (t) => {
 	);
 
 	await t.test(
+		"runs per-call result decoders for successful aggregate entries",
+		async () => {
+			const calls = [
+				{
+					to: "0x1111111111111111111111111111111111111111",
+					data: "0xaabb",
+					decodeResult: (returnData: `0x${string}`) =>
+						Number.parseInt(returnData.slice(2), 16),
+				},
+				{
+					to: "0x2222222222222222222222222222222222222222",
+					data: "0xccdd",
+					decodeResult: (returnData: `0x${string}`) => returnData.toUpperCase(),
+				},
+			] as const;
+			const provider = {
+				async request(): Promise<unknown> {
+					return "0x80012a8002babe";
+				},
+			};
+
+			const results = await aggregateCalls(provider, calls);
+
+			assert.deepEqual(results, [
+				{ success: true, returnData: "0x2a", decodedResult: 42 },
+				{ success: true, returnData: "0xbabe", decodedResult: "0XBABE" },
+			]);
+		},
+	);
+
+	await t.test(
+		"does not run a result decoder for an allowed failed aggregate entry",
+		async () => {
+			const provider = {
+				async request(): Promise<unknown> {
+					return "0x0001ff";
+				},
+			};
+
+			const [result] = await aggregateCalls(provider, [
+				{
+					to: "0x1111111111111111111111111111111111111111",
+					data: "0x",
+					allowFailure: true,
+					decodeResult: () => {
+						throw new Error("decoder should not run");
+					},
+				},
+			]);
+
+			assert.deepEqual(result, { success: false, returnData: "0xff" });
+		},
+	);
+
+	await t.test(
+		"returns decoded values directly in decoded-results mode",
+		async () => {
+			const calls = [
+				{
+					to: "0x1111111111111111111111111111111111111111",
+					data: "0xaabb",
+					decodeResult: (returnData: `0x${string}`) =>
+						Number.parseInt(returnData.slice(2), 16),
+				},
+				{
+					to: "0x2222222222222222222222222222222222222222",
+					data: "0xccdd",
+					decodeResult: (returnData: `0x${string}`) => returnData.toUpperCase(),
+				},
+			] as const;
+			const provider = {
+				async request(): Promise<unknown> {
+					return "0x80012a8002babe";
+				},
+			};
+
+			const results = await aggregateCalls(provider, calls, {
+				results: "decoded",
+			});
+
+			assert.deepEqual(results, [42, "0XBABE"]);
+		},
+	);
+
+	await t.test(
+		"rejects decoded-results mode when a decoder is missing",
+		async () => {
+			const provider = {
+				async request(): Promise<unknown> {
+					return "0x";
+				},
+			};
+
+			await assert.rejects(
+				aggregateCalls(
+					provider,
+					[
+						{
+							to: "0x1111111111111111111111111111111111111111",
+							data: "0x",
+						},
+					] as never,
+					{ results: "decoded" },
+				),
+				/calls\[0\].decodeResult is required/,
+			);
+		},
+	);
+
+	await t.test(
+		"rejects decoded-results mode when allowFailure is true",
+		async () => {
+			const provider = {
+				async request(): Promise<unknown> {
+					return "0x";
+				},
+			};
+
+			await assert.rejects(
+				aggregateCalls(
+					provider,
+					[
+						{
+							to: "0x1111111111111111111111111111111111111111",
+							data: "0x",
+							allowFailure: true,
+							decodeResult: (returnData: `0x${string}`) => returnData,
+						},
+					] as never,
+					{ results: "decoded" },
+				),
+				/calls\[0\].allowFailure cannot be true/,
+			);
+		},
+	);
+
+	await t.test(
 		"rejects failed subcalls unless allowFailure is set",
 		async () => {
 			const provider = {

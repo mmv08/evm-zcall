@@ -36,42 +36,45 @@ const client = createPublicClient({
 	transport: http(),
 });
 
-const [balanceResult, allowanceResult] = await aggregateCalls(client, [
-	{
-		to: token,
-		data: encodeFunctionData({
-			abi: erc20Abi,
-			functionName: "balanceOf",
-			args: [owner],
-		}),
-	},
-	{
-		to: token,
-		data: encodeFunctionData({
-			abi: erc20Abi,
-			functionName: "allowance",
-			args: [owner, spender],
-		}),
-	},
-]);
+const [balance, allowance] = await aggregateCalls(
+	client,
+	[
+		{
+			to: token,
+			data: encodeFunctionData({
+				abi: erc20Abi,
+				functionName: "balanceOf",
+				args: [owner],
+			}),
+			decodeResult: (data) =>
+				decodeFunctionResult({
+					abi: erc20Abi,
+					functionName: "balanceOf",
+					data,
+				}),
+		},
+		{
+			to: token,
+			data: encodeFunctionData({
+				abi: erc20Abi,
+				functionName: "allowance",
+				args: [owner, spender],
+			}),
+			decodeResult: (data) =>
+				decodeFunctionResult({
+					abi: erc20Abi,
+					functionName: "allowance",
+					data,
+				}),
+		},
+	],
+	{ results: "decoded" },
+);
 
-if (!balanceResult || !allowanceResult) {
-	throw new Error("Unexpected Ghostcall response shape");
-}
-
-const balance = decodeFunctionResult({
-	abi: erc20Abi,
-	functionName: "balanceOf",
-	data: balanceResult.returnData,
+console.log({
+	balance,
+	allowance,
 });
-
-const allowance = decodeFunctionResult({
-	abi: erc20Abi,
-	functionName: "allowance",
-	data: allowanceResult.returnData,
-});
-
-console.log({ balance, allowance });
 ```
 
 ## Why this works
@@ -103,7 +106,7 @@ It intentionally exposes only the small protocol surface:
 
 - `encodeCalls(calls)` bundles the canonical Ghostcall initcode and returns the full CREATE-style `eth_call` data blob.
 - `decodeResults(data)` parses the packed Ghostcall response format into `{ success, returnData }` entries.
-- `aggregateCalls(provider, calls)` sends the CREATE-style `eth_call` through an EIP-1193 `request` provider and decodes the response.
+- `aggregateCalls(provider, calls, options?)` sends the CREATE-style `eth_call` through an EIP-1193 `request` provider, decodes the packed response, and optionally runs each call's `decodeResult` callback.
 
 `encodeCalls` fails fast if any subcall exceeds the `uint16` calldata limit or if the full
 encoded CREATE payload would exceed the EVM initcode size ceiling.
@@ -112,7 +115,10 @@ encoded CREATE payload would exceed the EVM initcode size ceiling.
 matching Multicall3-style strict batches, while calls marked `allowFailure: true` are returned as
 ordinary `{ success: false, returnData }` entries.
 
-The SDK has no ABI helpers and no runtime artifact reads.
+The SDK has no ABI helpers and no runtime artifact reads. To ABI-decode successful entries, pass
+`decodeResult` callbacks that call the ABI library already used by the application. By default,
+`aggregateCalls` returns result entries. Pass `{ results: "decoded" }` to return decoded values
+directly.
 
 ## Current scope
 
