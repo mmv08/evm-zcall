@@ -1,0 +1,14 @@
+{
+	"name": "ghostcall-docs",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "astro build",
+		"dev": "astro dev",
+		"preview": "astro preview"
+	},
+	"devDependencies": {
+		"@astrojs/starlight": "^0.38.4",
+		"astro": "^6.2.1"
+	}
+}

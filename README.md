@@ -7,6 +7,12 @@ appended payload. The EVM executes that initcode exactly as if it were deploying
 because the transport is `eth_call`, nothing is persisted. Whatever the initcode `RETURN`s comes
 back as the RPC result.
 
+## Docs
+
+The documentation site lives in [`docs/src/content/docs`](docs/src/content/docs). Run
+`npm run dev --prefix docs` locally or `npm run build --prefix docs` to build the static
+Starlight site.
+
 ## Install
 
 ```bash
