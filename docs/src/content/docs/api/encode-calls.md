@@ -20,10 +20,27 @@ const data = encodeCalls([
 	},
 ]);
 
-const response = await provider.request({
-	method: "eth_call",
-	params: [{ data }, "latest"],
+const rpcResponse = await fetch("https://ethereum-rpc.publicnode.com", {
+	method: "POST",
+	headers: { "content-type": "application/json" },
+	body: JSON.stringify({
+		jsonrpc: "2.0",
+		id: 1,
+		method: "eth_call",
+		params: [{ data }, "latest"],
+	}),
 });
+
+const body = (await rpcResponse.json()) as {
+	error?: { message?: string };
+	result?: `0x${string}`;
+};
+
+if (!body.result) {
+	throw new Error(body.error?.message ?? "eth_call returned no result");
+}
+
+const response = body.result;
 ```
 
 ## Signature

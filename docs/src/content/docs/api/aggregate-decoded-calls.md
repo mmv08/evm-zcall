@@ -11,12 +11,24 @@ Use this for the common app path: every subcall is expected to succeed, and each
 
 ```ts
 import { aggregateDecodedCalls } from "@volga-sh/evm-ghostcall";
-import { decodeFunctionResult, encodeFunctionData, parseAbi } from "viem";
+import {
+	createPublicClient,
+	decodeFunctionResult,
+	encodeFunctionData,
+	http,
+	parseAbi,
+} from "viem";
+import { mainnet } from "viem/chains";
 
 const erc20Abi = parseAbi([
 	"function balanceOf(address account) view returns (uint256)",
 	"function totalSupply() view returns (uint256)",
 ]);
+
+const client = createPublicClient({
+	chain: mainnet,
+	transport: http(),
+});
 
 const token = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 const owner = "0x28C6c06298d514Db089934071355E5743bf21d60";

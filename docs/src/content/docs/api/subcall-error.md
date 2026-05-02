@@ -14,6 +14,13 @@ import {
 	aggregateCalls,
 	GhostcallSubcallError,
 } from "@volga-sh/evm-ghostcall";
+import { createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+
+const client = createPublicClient({
+	chain: mainnet,
+	transport: http(),
+});
 
 try {
 	await aggregateCalls(client, [

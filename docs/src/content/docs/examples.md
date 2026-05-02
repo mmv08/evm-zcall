@@ -68,6 +68,13 @@ Use `aggregateCalls()` when you need raw entries or want to tolerate a failed su
 
 ```ts
 import { aggregateCalls } from "@volga-sh/evm-ghostcall";
+import { createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+
+const client = createPublicClient({
+	chain: mainnet,
+	transport: http(),
+});
 
 const results = await aggregateCalls(client, [
 	{
@@ -104,12 +111,27 @@ const data = encodeCalls([
 	},
 ]);
 
-const response = await provider.request({
-	method: "eth_call",
-	params: [{ data }, "latest"],
+const rpcResponse = await fetch("https://ethereum-rpc.publicnode.com", {
+	method: "POST",
+	headers: { "content-type": "application/json" },
+	body: JSON.stringify({
+		jsonrpc: "2.0",
+		id: 1,
+		method: "eth_call",
+		params: [{ data }, "latest"],
+	}),
 });
 
-const results = decodeResults(response as `0x${string}`);
+const body = (await rpcResponse.json()) as {
+	error?: { message?: string };
+	result?: `0x${string}`;
+};
+
+if (!body.result) {
+	throw new Error(body.error?.message ?? "eth_call returned no result");
+}
+
+const results = decodeResults(body.result);
 ```
 
 The call object omits `to`; the supplied `data` is executed as CREATE initcode.

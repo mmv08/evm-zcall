@@ -11,6 +11,8 @@ Get from install to a real batch in a few lines. The recommended entrypoint is `
 npm install @volga-sh/evm-ghostcall
 ```
 
+The examples below also use viem. Install it with `npm install viem` if your app does not already provide a client and ABI helpers.
+
 ## 2. Set up a provider
 
 Ghostcall accepts any provider with an EIP-1193-style `request` method. This example uses viem for the provider plus ABI encoding and decoding:
@@ -118,7 +120,7 @@ const data = encodeCalls([
 	},
 ]);
 
-const response = await provider.request({
+const response = await client.request({
 	method: "eth_call",
 	params: [{ data }, "latest"],
 });

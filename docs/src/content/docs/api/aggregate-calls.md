@@ -11,6 +11,13 @@ Use this when you need `success` flags, revert data, or per-call `allowFailure`.
 
 ```ts
 import { aggregateCalls } from "@volga-sh/evm-ghostcall";
+import { createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+
+const client = createPublicClient({
+	chain: mainnet,
+	transport: http(),
+});
 
 const results = await aggregateCalls(client, [
 	{

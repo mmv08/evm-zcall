@@ -16,14 +16,39 @@ npm install @volga-sh/evm-ghostcall
 
 ## Quick Start
 
+This example uses viem for the EIP-1193-compatible client and ABI helpers. Install it with `npm install viem` if your app does not already use it.
+
 ```ts
 import { aggregateDecodedCalls } from "@volga-sh/evm-ghostcall";
+import {
+	createPublicClient,
+	decodeFunctionResult,
+	encodeFunctionData,
+	http,
+	parseAbi,
+} from "viem";
+import { mainnet } from "viem/chains";
 
-const [totalSupplyReturnData] = await aggregateDecodedCalls(provider, [
+const client = createPublicClient({
+	chain: mainnet,
+	transport: http(),
+});
+
+const erc20Abi = parseAbi(["function totalSupply() view returns (uint256)"]);
+
+const [totalSupply] = await aggregateDecodedCalls(client, [
 	{
 		to: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-		data: "0x18160ddd",
-		decodeResult: (returnData) => returnData,
+		data: encodeFunctionData({
+			abi: erc20Abi,
+			functionName: "totalSupply",
+		}),
+		decodeResult: (returnData) =>
+			decodeFunctionResult({
+				abi: erc20Abi,
+				functionName: "totalSupply",
+				data: returnData,
+			}),
 	},
 ]);
 ```
