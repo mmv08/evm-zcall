@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Abi, AbiError, AbiFunction, Hex } from "ox";
-import { aggregateCalls, encodeCalls } from "../src/sdk/index.ts";
+import {
+	aggregateCalls,
+	aggregateDecodedCalls,
+	encodeCalls,
+} from "../src/sdk/index.ts";
 
 import {
 	deployContract,
@@ -95,7 +99,7 @@ test("Ghostcall integration", async (t) => {
 				[failCall, "mocked revert"],
 			);
 
-			const entries = await aggregateCalls(anvil.transport, [
+			const decodedResults = await aggregateDecodedCalls(anvil.transport, [
 				{
 					to: mockAddress,
 					data: getValueCall,
@@ -108,16 +112,17 @@ test("Ghostcall integration", async (t) => {
 					decodeResult: (returnData) =>
 						decodeFunctionResult(getGreeting, returnData),
 				},
+			]);
+			const failureEntries = await aggregateCalls(anvil.transport, [
 				{ to: mockAddress, data: failCall, allowFailure: true },
 			]);
-			const [valueEntry, greetingEntry, failureEntry] = entries;
+			const [valueResult, greetingResult] = decodedResults;
+			const [failureEntry] = failureEntries;
 
-			assert.equal(valueEntry.success, true);
-			assert.equal(valueEntry.decodedResult, 0x11223344n);
+			assert.equal(valueResult, 0x11223344n);
+			assert.equal(greetingResult, "hello from mock-contract");
 
-			assert.equal(greetingEntry.success, true);
-			assert.equal(greetingEntry.decodedResult, "hello from mock-contract");
-
+			assert.ok(failureEntry);
 			assert.equal(failureEntry.success, false);
 			const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returnData);
 			assert.equal(revertError.name, "Error");
@@ -161,6 +166,7 @@ test("Ghostcall integration", async (t) => {
 		]);
 		const [failureEntry, successEntry] = entries;
 
+		assert.ok(failureEntry);
 		assert.equal(failureEntry.success, false);
 
 		const revertError = AbiError.fromAbi(emptyAbi, failureEntry.returnData);
@@ -170,6 +176,7 @@ test("Ghostcall integration", async (t) => {
 			"fatal mock revert",
 		);
 
+		assert.ok(successEntry);
 		assert.equal(successEntry.success, true);
 		assert.equal(
 			decodeFunctionResult(getValue, successEntry.returnData),

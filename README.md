@@ -22,7 +22,7 @@ npm install @volga-sh/evm-ghostcall
 ## Quick example
 
 ```ts
-import { aggregateCalls } from "@volga-sh/evm-ghostcall";
+import { aggregateDecodedCalls } from "@volga-sh/evm-ghostcall";
 import {
 	createPublicClient,
 	decodeFunctionResult,
@@ -37,20 +37,20 @@ const erc20Abi = parseAbi([
 	"function allowance(address owner, address spender) view returns (uint256)",
 ]);
 
-const token = "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-const owner = "0x1111111111111111111111111111111111111111";
-const spender = "0x2222222222222222222222222222222222222222";
+const usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+const owner = "0x28C6c06298d514Db089934071355E5743bf21d60";
+const spender = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 
 const client = createPublicClient({
 	chain: mainnet,
 	transport: http(),
 });
 
-const [balance, allowance] = await aggregateCalls(
+const [balance, allowance] = await aggregateDecodedCalls(
 	client,
 	[
 		{
-			to: token,
+			to: usdc,
 			data: encodeFunctionData({
 				abi: erc20Abi,
 				functionName: "balanceOf",
@@ -64,7 +64,7 @@ const [balance, allowance] = await aggregateCalls(
 				}),
 		},
 		{
-			to: token,
+			to: usdc,
 			data: encodeFunctionData({
 				abi: erc20Abi,
 				functionName: "allowance",
@@ -78,7 +78,6 @@ const [balance, allowance] = await aggregateCalls(
 				}),
 		},
 	],
-	{ results: "decoded" },
 );
 
 console.log({
@@ -93,7 +92,8 @@ The TypeScript SDK intentionally exposes only the small protocol surface:
 
 - `encodeCalls(calls, options?)` bundles the canonical Ghostcall initcode and returns the full CREATE-style `eth_call` data blob.
 - `decodeResults(data)` parses the packed Ghostcall response format into `{ success, returnData }` entries.
-- `aggregateCalls(provider, calls, options?)` sends the CREATE-style `eth_call` through an EIP-1193 `request` provider, decodes the packed response, and optionally runs each call's `decodeResult` callback.
+- `aggregateCalls(provider, calls, options?)` sends the CREATE-style `eth_call` through an EIP-1193 `request` provider and returns raw `{ success, returnData }` entries.
+- `aggregateDecodedCalls(provider, calls, options?)` sends the same request path for strict batches and returns decoded values directly.
 
 `encodeCalls` fails fast if any subcall exceeds the `uint16` calldata limit or if the full
 encoded CREATE payload would exceed the configured CREATE initcode ceiling. By default that ceiling
@@ -107,9 +107,8 @@ which preserves the subcall index, original call, and raw failed result entry so
 revert data.
 
 The SDK has no ABI helpers and no runtime artifact reads. To ABI-decode successful entries, pass
-`decodeResult` callbacks that call the ABI library already used by the application. By default,
-`aggregateCalls` returns result entries. Pass `{ results: "decoded" }` to return decoded values
-directly. Use `options.ethCall` to set outer `eth_call` fields such as `from`, `gas`, and
+`decodeResult` callbacks to `aggregateDecodedCalls` and use the ABI library already used by the
+application. Use `options.ethCall` to set outer `eth_call` fields such as `from`, `gas`, and
 `blockTag`. `blockTag` accepts named tags such as `latest` or `safe`, canonical hex quantities,
 and decimal block numbers passed as strings, numbers, or bigints.
 

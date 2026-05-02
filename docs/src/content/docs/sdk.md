@@ -85,7 +85,7 @@ async function aggregateCalls(
 	provider,
 	calls,
 	options?,
-): Promise<GhostcallAggregateResult[]>;
+): Promise<GhostcallResult[]>;
 ```
 
 `aggregateCalls()` performs the provider-facing flow:
@@ -94,7 +94,6 @@ async function aggregateCalls(
 2. Send `eth_call` with `{ data }` and any configured `from` / `gas`, without a `to`.
 3. Decode the packed response with `decodeResults()`.
 4. Enforce result count and failure policy.
-5. Run any per-call `decodeResult` callbacks for successful entries.
 
 The aggregate options also accept outer `eth_call` controls:
 
@@ -110,33 +109,55 @@ type GhostcallEthCallOptions = {
 
 Subcalls run in order, use ordinary `CALL`, and each one receives all remaining gas at the point it executes. That means earlier calls can affect later ones through both ephemeral state changes and gas consumption.
 
-By default, results are returned as entries:
+`aggregateCalls()` always returns raw entries:
 
 ```ts
 const results = await aggregateCalls(provider, [
 	{
-		to: "0x1111111111111111111111111111111111111111",
+		// WETH9 on Ethereum mainnet: totalSupply()
+		to: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
 		data: "0x18160ddd",
 	},
 ]);
 ```
 
-Set `results: "decoded"` to return only decoded values:
+Strict mode throws `GhostcallSubcallError` when a subcall fails. The error preserves the failed index, original call, and raw `{ success: false, returnData }` entry so callers can inspect revert data without switching to `allowFailure: true`.
+
+## aggregateDecodedCalls()
 
 ```ts
-const [totalSupply] = await aggregateCalls(
+async function aggregateDecodedCalls(
+	provider,
+	calls,
+	options?,
+): Promise<GhostcallDecodedResults>;
+```
+
+`aggregateDecodedCalls()` uses the same transport flow as `aggregateCalls()`, but it is the strict decoded helper:
+
+- every call must provide `decodeResult`
+- `allowFailure: true` is rejected before the RPC request is sent
+- any failed subcall rejects with `GhostcallSubcallError`
+
+Use it when you want decoded values directly:
+
+```ts
+const erc20Abi = parseAbi(["function totalSupply() view returns (uint256)"]);
+const weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
+const [totalSupply] = await aggregateDecodedCalls(
 	provider,
 	[
 		{
-			to: token,
+			to: weth,
 			data: "0x18160ddd",
-			decodeResult: (returnData) => decodeTotalSupply(returnData),
+			decodeResult: (returnData) =>
+				decodeFunctionResult({
+					abi: erc20Abi,
+					functionName: "totalSupply",
+					data: returnData,
+				}),
 		},
 	],
-	{ results: "decoded" },
 );
 ```
-
-Decoded-results mode rejects invalid call lists before sending the RPC request if a call is missing `decodeResult` or sets `allowFailure: true`.
-
-Strict mode throws `GhostcallSubcallError` when a subcall fails. The error preserves the failed index, original call, and raw `{ success: false, returnData }` entry so callers can inspect revert data without switching to `allowFailure: true`.
