@@ -15,7 +15,7 @@ import { aggregateDecodedCalls } from "@volga-sh/evm-ghostcall";
 
 `aggregateDecodedCalls()` is the fastest path for application code: pass an EIP-1193-style provider, raw call entries, and one `decodeResult` callback per call. Ghostcall sends one CREATE-style `eth_call`, preserves call order, and returns the decoded values as a typed tuple.
 
-[Get started](/getting-started/) | [API reference](/api/) | [GitHub](https://github.com/volga-sh/ghostcall)
+Start with the [getting started guide](/getting-started/), jump into the [API reference](/api/), or browse the source on [GitHub](https://github.com/volga-sh/ghostcall).
 
 The SDK is intentionally provider-agnostic and hex-oriented. Bring viem, ox, ethers, or your own ABI helpers for function encoding and result decoding.
 
