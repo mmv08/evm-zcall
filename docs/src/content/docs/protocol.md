@@ -18,6 +18,8 @@ An `eth_call` request with a `data` field and no `to` field executes the supplie
 
 The initcode reads caller-appended bytes from its own code using `CODECOPY`, executes each subcall with zero value, and returns a packed result blob.
 
+Subcalls use ordinary `CALL`, not `STATICCALL`. That means they execute from ghostcall's ephemeral CREATE context, and later subcalls in the same batch can observe state changes made by earlier subcalls during that one simulated execution.
+
 ## Input payload
 
 The caller sends:

@@ -18,11 +18,18 @@ At runtime, SDK boundary functions reject values that are not strings, do not st
 ## encodeCalls()
 
 ```ts
-function encodeCalls(calls: readonly GhostcallCall[]): Hex;
+function encodeCalls(
+	calls: readonly GhostcallCall[],
+	options?: GhostcallEncodeOptions,
+): Hex;
 
 type GhostcallCall = {
 	to: Hex;
 	data: Hex;
+};
+
+type GhostcallEncodeOptions = {
+	maxInitcodeBytes?: number;
 };
 ```
 
@@ -46,6 +53,8 @@ Validation is intentionally eager:
 - `data` must be valid even-length hex.
 - A single call's data must fit in `uint16`, so it cannot exceed `65,535` bytes.
 - The full initcode plus payload must fit the configured CREATE initcode ceiling.
+
+If `maxInitcodeBytes` is omitted, the SDK defaults to Ethereum's EIP-3860 limit of `49,152` bytes.
 
 ## decodeResults()
 
@@ -82,10 +91,20 @@ async function aggregateCalls(
 `aggregateCalls()` performs the provider-facing flow:
 
 1. Encode the call list with `encodeCalls()`.
-2. Send `eth_call` with `{ data }` and no `to`.
+2. Send `eth_call` with `{ data }` and any configured `from` / `gas`, without a `to`.
 3. Decode the packed response with `decodeResults()`.
 4. Enforce result count and failure policy.
 5. Run any per-call `decodeResult` callbacks for successful entries.
+
+The aggregate options also accept outer `eth_call` controls:
+
+```ts
+type GhostcallEthCallOptions = {
+	from?: Hex;
+	gas?: `0x${string}`;
+	blockTag?: string;
+};
+```
 
 By default, results are returned as entries:
 
@@ -115,3 +134,5 @@ const [totalSupply] = await aggregateCalls(
 ```
 
 Decoded-results mode rejects invalid call lists before sending the RPC request if a call is missing `decodeResult` or sets `allowFailure: true`.
+
+Strict mode throws `GhostcallSubcallError` when a subcall fails. The error preserves the failed index, original call, and raw `{ success: false, returnData }` entry so callers can inspect revert data without switching to `allowFailure: true`.

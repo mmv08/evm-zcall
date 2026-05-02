@@ -46,11 +46,18 @@ test("Ghostcall integration", async (t) => {
 		"function getGreeting() returns (string)",
 	);
 	const fail = AbiFunction.from("function fail()");
+	const balanceOf = AbiFunction.from(
+		"function balanceOf(address) view returns (uint256)",
+	);
+	const invocationCount = AbiFunction.from(
+		"function invocationCount() returns (uint256)",
+	);
 
 	const givenCalldataReturn = AbiFunction.fromAbi(
 		mockAbi,
 		"givenCalldataReturn",
 	);
+	const givenMethodReturn = AbiFunction.fromAbi(mockAbi, "givenMethodReturn");
 	const givenCalldataRevertWithMessage = AbiFunction.fromAbi(
 		mockAbi,
 		"givenCalldataRevertWithMessage",
@@ -174,6 +181,36 @@ test("Ghostcall integration", async (t) => {
 		const entries = await aggregateCalls(anvil.transport, []);
 		assert.deepEqual(entries, []);
 	});
+
+	await t.test(
+		"uses CALL semantics so same-batch state changes are visible to later calls",
+		async () => {
+			await sendFunctionTransaction(anvil.transport, mockAddress, reset, []);
+
+			const owner = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+			const balanceCall = encodeFunctionData(balanceOf, [owner]);
+			const invocationCountCall = encodeFunctionData(invocationCount, []);
+
+			await sendFunctionTransaction(
+				anvil.transport,
+				mockAddress,
+				givenMethodReturn,
+				[balanceCall, encodeFunctionResult(balanceOf, 123n)],
+			);
+
+			const [, countEntry] = await aggregateCalls(anvil.transport, [
+				{ to: mockAddress, data: balanceCall },
+				{ to: mockAddress, data: invocationCountCall },
+			]);
+
+			assert.ok(countEntry);
+			assert.equal(countEntry.success, true);
+			assert.equal(
+				decodeFunctionResult(invocationCount, countEntry.returnData),
+				1n,
+			);
+		},
+	);
 
 	await t.test("returns data up to the CREATE return-size limit", async () => {
 		await sendFunctionTransaction(anvil.transport, mockAddress, reset, []);

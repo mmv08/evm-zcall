@@ -5,17 +5,23 @@ import {
 	aggregateCalls,
 	decodeResults,
 	encodeCalls,
+	GhostcallSubcallError,
 } from "../src/sdk/index.ts";
 
 const maxCreateInitcodeSize = 0xc000;
 const encodedCallHeaderSize = 0x16;
 
 test("Ghostcall SDK", async (t) => {
-	await t.test("returns bundled initcode for an empty call list", () => {
+	await t.test("supports empty call lists and custom initcode ceilings", () => {
 		const data = encodeCalls([]);
+		const bundledInitcodeSize = (data.length - 2) / 2;
 
 		assert.match(data, /^0x[0-9a-fA-F]+$/);
 		assert.notEqual(data, "0x");
+		assert.throws(
+			() => encodeCalls([], { maxInitcodeBytes: bundledInitcodeSize - 1 }),
+			RangeError,
+		);
 	});
 
 	await t.test(
@@ -126,10 +132,18 @@ test("Ghostcall SDK", async (t) => {
 			{ length: maxEmptyCalls },
 			() => emptyCall,
 		);
-		const maxSizedData = encodeCalls(maxSizedBatch);
+		const maxSizedData = encodeCalls(maxSizedBatch, {
+			maxInitcodeBytes: maxCreateInitcodeSize,
+		});
 
-		assert.ok((maxSizedData.length - 2) / 2 < maxCreateInitcodeSize);
-		assert.throws(() => encodeCalls([...maxSizedBatch, emptyCall]), RangeError);
+		assert.ok((maxSizedData.length - 2) / 2 <= maxCreateInitcodeSize);
+		assert.throws(
+			() =>
+				encodeCalls([...maxSizedBatch, emptyCall], {
+					maxInitcodeBytes: maxCreateInitcodeSize,
+				}),
+			RangeError,
+		);
 	});
 
 	await t.test("decodes empty and mixed result payloads", () => {
@@ -146,7 +160,7 @@ test("Ghostcall SDK", async (t) => {
 	});
 
 	await t.test(
-		"sends a CREATE-style eth_call and decodes results",
+		"forwards CREATE-style eth_call params and decodes results",
 		async () => {
 			const calls = [
 				{
@@ -170,12 +184,25 @@ test("Ghostcall SDK", async (t) => {
 				},
 			};
 
-			const results = await aggregateCalls(provider, calls);
+			const results = await aggregateCalls(provider, calls, {
+				ethCall: {
+					from: "0x3333333333333333333333333333333333333333",
+					gas: "0x5208",
+					blockTag: "safe",
+				},
+			});
 
 			assert.deepEqual(requests, [
 				{
 					method: "eth_call",
-					params: [{ data: encodeCalls(calls) }, "latest"],
+					params: [
+						{
+							data: encodeCalls(calls),
+							from: "0x3333333333333333333333333333333333333333",
+							gas: "0x5208",
+						},
+						"safe",
+					],
 				},
 			]);
 			assert.deepEqual(results, [
@@ -338,7 +365,20 @@ test("Ghostcall SDK", async (t) => {
 						data: "0x",
 					},
 				]),
-				/Ghostcall subcall 0 failed/,
+				(error: unknown) => {
+					assert.ok(error instanceof GhostcallSubcallError);
+					assert.equal(error.message, "Ghostcall subcall 0 failed");
+					assert.equal(error.index, 0);
+					assert.deepEqual(error.call, {
+						to: "0x1111111111111111111111111111111111111111",
+						data: "0x",
+					});
+					assert.deepEqual(error.result, {
+						success: false,
+						returnData: "0xff",
+					});
+					return true;
+				},
 			);
 		},
 	);
